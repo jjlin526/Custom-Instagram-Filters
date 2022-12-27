@@ -1,131 +1,437 @@
-var imgs = [];
-var avgImg;
-// Composite image that has been interpolated with image displayed on left
-var interpolatedImg;
-var numOfImages = 30;
-// Index of current image displayed on left
-var currImageIndex = 0;
-
-//////////////////////////////////////////////////////////
+// Image of Husky Creative commons from Wikipedia:
+// https://en.wikipedia.org/wiki/Dog#/media/File:Siberian_Husky_pho.jpg
+var imgIn;
+// Default filter -- sepia, vignetting and radial blur
+var defaultState = true;
+// Set all other filter states to inactive
+var sharpenGreyscaleState = false;
+var sharpenState = false;
+var sharpenSepiaState = false;
+var invertSepiaState = false;
+// Collection of convolution kernels
+var matrix = [
+  // Convolution kernel for radial blur filter
+  [
+    [1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64],
+    [1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64],
+    [1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64],
+    [1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64],
+    [1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64],
+    [1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64],
+    [1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64],
+    [1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64, 1 / 64],
+  ],
+  // Convolution kernel for sharpen filter
+  [
+    [-1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1],
+    [-1, -1, 25, -1, -1],
+    [-1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1],
+  ],
+];
+/////////////////////////////////////////////////////////////////
 function preload() {
-  // preload() runs once
-  // Load and store all 30 faces in memory
-  for (var index = 0; index < numOfImages; ++index) {
-    // Relative path to image
-    var fileName = "assets/" + index + ".jpg";
-    // Store image of face based on path
-    imgs.push(loadImage(fileName));
-  }
+  imgIn = loadImage("assets/husky.jpg");
 }
-
-//////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
 function setup() {
-  // Scale canvas based on first image's dimensions
-  createCanvas(imgs[0].width * 2, imgs[0].height);
-  // Set appropriate factor for pixel density
-  pixelDensity(1);
-  // Create empty off-screen graphics buffer to save calculation results
-  avgImg = createGraphics(imgs[0].width, imgs[0].height);
-  // Create empty off-screen graphics buffer to save interpolated composite image
-  interpolatedImg = createGraphics(imgs[0].width, imgs[0].height);
+  createCanvas(imgIn.width * 2, imgIn.height + 160);
 }
-//////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
 function draw() {
-  // Set background to gray
-  background(125);
-  // Draw the first image on the left of canvas
-  image(imgs[0], 0, 0);
+  // Draw black background
+  background(255);
+  // Draw unfiltered image
+  image(imgIn, 0, 0);
+  // Draw filtered image
+  image(earlyBirdFilter(imgIn), imgIn.width, 0);
+  // Display instructions
+  textSize(25);
+  fill(0);
+  text("Press 'q' for sharpen + greyscale", 20, height - 120);
+  text("Press 'w' for sharpen", 20, height - 75);
+  text("Press 'e' for sharpen + sepia", 20, height - 30);
+  text("Press 'r' for inverted + sepia", width / 3, height - 120);
+  text("Press 't' for default", width / 3, height - 75);
 
-  // Make pixel array accessible for each face in memory
-  for (var index = 0; index < numOfImages; ++index) {
-    imgs[index].loadPixels();
-  }
-  // Load data in buffer images -- composite and interpolated images
-  avgImg.loadPixels();
-  interpolatedImg.loadPixels();
-
-  // Iterate over all pixels in each array image
-  for (var widthIndex = 0; widthIndex < imgs[0].width; ++widthIndex) {
-    for (var heightIndex = 0; heightIndex < imgs[0].height; ++heightIndex) {
-      // Store sum of RGB channels for each pixel for each face
-      var sumR = 0;
-      var sumG = 0;
-      var sumB = 0;
-      for (var imageIndex = 0; imageIndex < numOfImages; ++imageIndex) {
-        // Convert 2D X and Y coordinate to a 1D pixel index value in the pixel array
-        var pixelArrayIndex = (heightIndex * imgs[0].width + widthIndex) * 4;
-        // Use pixel index to store sum of each pixel's RGB values from 0 - 255
-        sumR += imgs[imageIndex].pixels[pixelArrayIndex + 0];
-        sumG += imgs[imageIndex].pixels[pixelArrayIndex + 1];
-        sumB += imgs[imageIndex].pixels[pixelArrayIndex + 2];
-      }
-      // Update composite image to represent the average pixel of all 30 faces
-      avgImg.pixels[pixelArrayIndex + 0] = sumR / numOfImages;
-      avgImg.pixels[pixelArrayIndex + 1] = sumG / numOfImages;
-      avgImg.pixels[pixelArrayIndex + 2] = sumB / numOfImages;
-      // Set alpha component to 255 to minimize transparency
-      avgImg.pixels[pixelArrayIndex + 3] = 255;
-    }
-  }
-
-  // Apply changes to average image
-  avgImg.updatePixels();
-
-  // Display average image
-  image(avgImg, imgs[0].width, 0);
-
-  // Limit calculations performed
   noLoop();
 }
-
-// Function that draws a random image from the faces array on the left when a key is pressed
-function keyPressed() {
-  // Generate random index from 0 - 29
-  currImageIndex = Math.floor(random(0, 30));
-  // Draw image at index to canvas
-  image(imgs[currImageIndex], 0, 0);
-  console.log(currImageIndex);
+/////////////////////////////////////////////////////////////////
+function mousePressed() {
+  loop();
+}
+/////////////////////////////////////////////////////////////////
+function earlyBirdFilter(img) {
+  var resultImg = createImage(imgIn.width, imgIn.height);
+  // Execute a series of filters based on program state
+  if (defaultState) {
+    resultImg = sepiaFilter(imgIn);
+    resultImg = darkCorners(resultImg);
+    resultImg = radialBlurFilter(resultImg);
+    resultImg = borderFilter(resultImg);
+  } else if (sharpenGreyscaleState) {
+    resultImg = sharpenFilter(imgIn);
+    resultImg = greyscaleFilter(resultImg);
+  } else if (sharpenState) {
+    resultImg = sharpenFilter(imgIn);
+  } else if (sharpenSepiaState) {
+    resultImg = sharpenFilter(imgIn);
+    resultImg = sepiaFilter(resultImg);
+  } else if (invertSepiaState) {
+    resultImg = invertFilter(imgIn);
+    resultImg = sepiaFilter(resultImg);
+  }
+  return resultImg;
 }
 
-/* Function that transitions the pixel values of the second image from the average image to the
-randomly selected image based on the mouse's X coordinate value*/
-function mouseMoved() {
-  // Interpolation amount depends on mouse's X coordinate
-  var unconstrainedLerpAmount = mouseX / (imgs[0].width * 2);
-  // Constrain the interpolation amount to remain within bounds to eliminate unexpected colors
-  var constrainedLerpAmount = constrain(unconstrainedLerpAmount, 0, 1);
-  // Perform interpolation between each pixel in the composite image and each pixel in the image displayed on left
-  for (var widthIndex = 0; widthIndex < imgs[0].width; ++widthIndex) {
-    for (var heightIndex = 0; heightIndex < imgs[0].height; ++heightIndex) {
-      // Compute pixel index to interpolate
-      var compositeIndex = (heightIndex * imgs[0].width + widthIndex) * 4;
-      // Blend composite pixel color with current face pixel color based on interpolation amount
-      var interpolatedColor = lerpColor(
-        // RGB color of composite image for given pixel
-        color(
-          avgImg.pixels[compositeIndex + 0],
-          avgImg.pixels[compositeIndex + 1],
-          avgImg.pixels[compositeIndex + 2]
-        ),
-        // RGB color of image on left for given pixel
-        color(
-          imgs[currImageIndex].pixels[compositeIndex + 0],
-          imgs[currImageIndex].pixels[compositeIndex + 1],
-          imgs[currImageIndex].pixels[compositeIndex + 2]
-        ),
-        // Degree of interpolation
-        constrainedLerpAmount
-      );
-      // Update interpolated image RGB channels with blended values
-      interpolatedImg.pixels[compositeIndex + 0] = red(interpolatedColor);
-      interpolatedImg.pixels[compositeIndex + 1] = green(interpolatedColor);
-      interpolatedImg.pixels[compositeIndex + 2] = blue(interpolatedColor);
-      // Ensure that the pixel is visible
-      interpolatedImg.pixels[compositeIndex + 3] = 255;
+// Function that turns an image into sepia -- similar to the invert filter
+function sepiaFilter(img) {
+  // Create fresh buffer of pixels based on original image
+  var imgOut = createImage(img.width, img.height);
+  // Load pixels for the display window into the pixels array for the original and modified image
+  img.loadPixels();
+  imgOut.loadPixels();
+
+  // Scan each pixel in original image
+  for (var xPixelCoord = 0; xPixelCoord < img.width; ++xPixelCoord) {
+    for (var yPixelCoord = 0; yPixelCoord < img.height; ++yPixelCoord) {
+      // Determine index for pixel in pixel array
+      var pixelArrayIndex = (img.width * yPixelCoord + xPixelCoord) * 4;
+      // Extract RGB channel values for pixel in original image
+      oldRed = img.pixels[pixelArrayIndex + 0];
+      oldGreen = img.pixels[pixelArrayIndex + 1];
+      oldBlue = img.pixels[pixelArrayIndex + 2];
+      // Apply sepia filter to RGB channels
+      newRed = oldRed * 0.393 + oldGreen * 0.769 + oldBlue * 0.189;
+      newGreen = oldRed * 0.349 + oldGreen * 0.686 + oldBlue * 0.168;
+      newBlue = oldRed * 0.272 + oldGreen * 0.534 + oldBlue * 0.131;
+      // Apply modified RGB channels to filtered image
+      imgOut.pixels[pixelArrayIndex + 0] = newRed;
+      imgOut.pixels[pixelArrayIndex + 1] = newGreen;
+      imgOut.pixels[pixelArrayIndex + 2] = newBlue;
+      // Make filtered image visible
+      imgOut.pixels[pixelArrayIndex + 3] = 255;
     }
   }
-  // Update the pixels in the interpolated image
-  interpolatedImg.updatePixels();
-  // Replace composite image with interpolated image with same location and dimensions
-  image(interpolatedImg, imgs[0].width, 0);
+  // Update display window with data in filtered pixels array
+  imgOut.updatePixels();
+  return imgOut;
+}
+
+// Function that adds dark corners (i.e. vignetting) to an image, providing an older feel
+function darkCorners(img) {
+  // Original RGB channels for a given pixel
+  var oldRed;
+  var oldGreen;
+  var oldBlue;
+  // New RGB channels for a pixel with vignetting filter applied
+  var vignettedRed;
+  var vignettedGreen;
+  var vignettedBlue;
+  // Create fresh buffer of pixels based on original image
+  var imgOut = createImage(img.width, img.height);
+  // Load pixels from the display window into the pixels array for the original and modified image
+  img.loadPixels();
+  imgOut.loadPixels();
+  // Scan each pixel in original image
+  for (var xPixelCoord = 0; xPixelCoord < img.width; ++xPixelCoord) {
+    for (var yPixelCoord = 0; yPixelCoord < img.height; ++yPixelCoord) {
+      // Dynamic luminance -- factor by which a pixel channel's luminosity will be altered by
+      var dynLum;
+      // Determine index for pixel in pixel array
+      var pixelArrayIndex = (img.width * yPixelCoord + xPixelCoord) * 4;
+      // Compute distance of pixel from center of image
+      var distanceFromCenter = dist(
+        xPixelCoord,
+        yPixelCoord,
+        img.width / 2,
+        img.height / 2
+      );
+      // Adjust the luminosity or brightness of a pixel by a factor based on its distance from image's center point
+      if (distanceFromCenter < 300) dynLum = 1;
+      else if (distanceFromCenter >= 300 && distanceFromCenter < 450)
+        dynLum = map(distanceFromCenter, 300, 449, 1, 0.4);
+      else if (distanceFromCenter >= 450)
+        dynLum = map(
+          distanceFromCenter,
+          450,
+          // Compute maximum distance a pixel can be from the center using Pythagorean Theorem
+          Math.sqrt(Math.pow(img.width / 2, 2) + Math.pow(img.height / 2, 2)),
+          0.4,
+          0
+        );
+      // Constrain the dynamic luminance to be within bounds as a means of defensive programming
+      dynLum = constrain(dynLum, 0, 1);
+      // Extract RGB channel values for pixel in original image
+      oldRed = img.pixels[pixelArrayIndex + 0];
+      oldGreen = img.pixels[pixelArrayIndex + 1];
+      oldBlue = img.pixels[pixelArrayIndex + 2];
+      // Apply vignetting filter to RGB channels
+      vignettedRed = oldRed * dynLum;
+      vignettedGreen = oldGreen * dynLum;
+      vignettedBlue = oldBlue * dynLum;
+      // Apply modified RGB channels to filtered image
+      imgOut.pixels[pixelArrayIndex + 0] = vignettedRed;
+      imgOut.pixels[pixelArrayIndex + 1] = vignettedGreen;
+      imgOut.pixels[pixelArrayIndex + 2] = vignettedBlue;
+      // Make filtered image visible
+      imgOut.pixels[pixelArrayIndex + 3] = 255;
+    }
+  }
+  // Update display window with data in filtered pixels array
+  imgOut.updatePixels();
+  return imgOut;
+}
+
+// Function that creates a radial blur that blurs based on distance from mouse coordinate
+function radialBlurFilter(img) {
+  // Original RGB channels for a given pixel
+  var oldRed;
+  var oldGreen;
+  var oldBlue;
+  // Create fresh buffer of pixels based on original image
+  var imgOut = createImage(img.width, img.height);
+  // Store size of convolutional matrix
+  var matrixSize = matrix[0].length;
+  // Load pixels from the display window into the pixels array for the original and modified image
+  imgOut.loadPixels();
+  img.loadPixels();
+  // Read every pixel
+  for (var xPixelCoord = 0; xPixelCoord < imgOut.width; xPixelCoord++) {
+    for (var yPixelCoord = 0; yPixelCoord < imgOut.height; yPixelCoord++) {
+      // Scale blur dynamically based on distance from mouse coordinate position in original image
+      var dynBlur = map(
+        dist(mouseX, mouseY, xPixelCoord, yPixelCoord),
+        100,
+        300,
+        0,
+        1
+      );
+      // Constrain the dynamic blur to be within bounds as a means of defensive programming
+      dynBlur = constrain(dynBlur, 0, 1);
+      // Determine 1D pixel array index based on 2D coordinate
+      var pixelArrayIndex = (xPixelCoord + yPixelCoord * imgOut.width) * 4;
+      // Extract RGB channel values for pixel in original image
+      oldRed = img.pixels[pixelArrayIndex + 0];
+      oldGreen = img.pixels[pixelArrayIndex + 1];
+      oldBlue = img.pixels[pixelArrayIndex + 2];
+      // Apply convolution kernel to pixel
+      var convolutionPixelColor = convolution(
+        xPixelCoord,
+        yPixelCoord,
+        matrix[0],
+        matrixSize,
+        img
+      );
+      // Apply dynamic radial blur to R, G and B channels
+      imgOut.pixels[pixelArrayIndex + 0] =
+        convolutionPixelColor[0] * dynBlur + oldRed * (1 - dynBlur);
+      imgOut.pixels[pixelArrayIndex + 1] =
+        convolutionPixelColor[1] * dynBlur + oldGreen * (1 - dynBlur);
+      imgOut.pixels[pixelArrayIndex + 2] =
+        convolutionPixelColor[2] * dynBlur + oldBlue * (1 - dynBlur);
+      imgOut.pixels[pixelArrayIndex + 3] = 255;
+    }
+  }
+  // Update display window with data in filtered pixels array
+  imgOut.updatePixels();
+  return imgOut;
+}
+
+// Function that uses convolution kernel to return a new color based on neighboring pixels
+function convolution(x, y, matrix, matrixSize, img) {
+  // Store total RGB channel values
+  var totalRed = 0.0;
+  var totalGreen = 0.0;
+  var totalBlue = 0.0;
+  // Offset provides access to all neighbouring pixels in convolution kernel
+  var offset = floor(matrixSize / 2);
+  // Convolution matrix loop
+  for (var xPixelCoord = 0; xPixelCoord < matrixSize; xPixelCoord++) {
+    for (var yPixelCoord = 0; yPixelCoord < matrixSize; yPixelCoord++) {
+      // Get pixel location within convolution matrix
+      var xLocation = x + xPixelCoord - offset;
+      var yLocation = y + yPixelCoord - offset;
+      var index = (xLocation + img.width * yLocation) * 4;
+      // Ensure we do not address a pixel that does not exist
+      index = constrain(index, 0, img.pixels.length - 1);
+      // Multiply all values with the mask and compute sum
+      totalRed += img.pixels[index + 0] * matrix[xPixelCoord][yPixelCoord];
+      totalGreen += img.pixels[index + 1] * matrix[xPixelCoord][yPixelCoord];
+      totalBlue += img.pixels[index + 2] * matrix[xPixelCoord][yPixelCoord];
+    }
+  }
+  // Return the new color
+  return [totalRed, totalGreen, totalBlue];
+}
+
+// Function that adds rounded corners to image
+function borderFilter(img) {
+  // Create local off-screen buffer
+  var buffer = createGraphics(img.width, img.height);
+  // Draw image onto buffer
+  buffer.image(img, 0, 0);
+  // Set border around shape to be a thick and white
+  buffer.stroke(255);
+  buffer.strokeWeight(30);
+  // Disable filling geometry
+  buffer.noFill();
+  // Draw rounded white rectangle border
+  buffer.rect(0, 0, img.width, img.height, 60);
+  // Draw non-rounded white rectangle to remove black triangles around image
+  buffer.rect(0, 0, img.width, img.height);
+  // Output local buffer
+  return buffer;
+}
+
+// Function that applies a filter to image based on key pressed
+function keyTyped() {
+  resetState();
+  if (key === "q") {
+    sharpenGreyscaleState = true;
+  } else if (key === "w") {
+    sharpenState = true;
+  } else if (key === "e") {
+    sharpenSepiaState = true;
+  } else if (key === "r") {
+    invertSepiaState = true;
+  } else {
+    defaultState = true;
+  }
+  loop();
+}
+
+// Function that resets the state of all applied filters
+function resetState() {
+  defaultState = false;
+  sharpenGreyscaleState = false;
+  sharpenSepiaState = false;
+  sharpenState = false;
+  invertSepiaState = false;
+}
+
+// Function that applies a weighted greyscale filter to image
+function greyscaleFilter(img) {
+  // Original RGB channels for a given pixel
+  var oldRed;
+  var oldGreen;
+  var oldBlue;
+  // Create fresh buffer of pixels based on original image
+  var imgOut = createImage(img.width, img.height);
+  // Load pixels for the display window into the pixels array for the original and modified image
+  img.loadPixels();
+  imgOut.loadPixels();
+  // Scan each pixel in original image
+  for (var xPixelCoord = 0; xPixelCoord < img.width; ++xPixelCoord) {
+    for (var yPixelCoord = 0; yPixelCoord < img.height; ++yPixelCoord) {
+      // Determine index for pixel in pixel array
+      var pixelArrayIndex = (img.width * yPixelCoord + xPixelCoord) * 4;
+      // Extract RGB channel values for pixel in original image
+      oldRed = img.pixels[pixelArrayIndex + 0];
+      oldGreen = img.pixels[pixelArrayIndex + 1];
+      oldBlue = img.pixels[pixelArrayIndex + 2];
+      // Apply weighted RGB to greyscale conversion to account for human perception of color
+      var weightedGreyscale = map(
+        0.299 * oldRed + 0.587 * oldGreen + 0.114 * oldBlue,
+        0,
+        1020,
+        0,
+        255
+      );
+      // Ensure that weighted greyscale is within bounds
+      weightedGreyscale = constrain(weightedGreyscale, 0, 255);
+      // Apply weighted greyscale to filtered image
+      imgOut.pixels[pixelArrayIndex + 0] = weightedGreyscale;
+      imgOut.pixels[pixelArrayIndex + 1] = weightedGreyscale;
+      imgOut.pixels[pixelArrayIndex + 2] = weightedGreyscale;
+      // Make filtered image visible
+      imgOut.pixels[pixelArrayIndex + 3] = 255;
+    }
+  }
+  // Update display window with data in filtered pixels array
+  imgOut.updatePixels();
+  return imgOut;
+}
+
+// Function that sharpens an image by enhancing its edges
+function sharpenFilter(img) {
+  // Original RGB channels for a given pixel
+  var oldRed;
+  var oldGreen;
+  var oldBlue;
+  // Create fresh buffer of pixels based on original image
+  var imgOut = createImage(img.width, img.height);
+  // Load pixels for the display window into the pixels array for the original and modified image
+  img.loadPixels();
+  imgOut.loadPixels();
+  // Scan each pixel in original image
+  for (var xPixelCoord = 0; xPixelCoord < img.width; ++xPixelCoord) {
+    for (var yPixelCoord = 0; yPixelCoord < img.height; ++yPixelCoord) {
+      // Determine index for pixel in pixel array
+      var pixelArrayIndex = (img.width * yPixelCoord + xPixelCoord) * 4;
+      // Extract RGB channel values for pixel in original image
+      oldRed = img.pixels[pixelArrayIndex + 0];
+      oldGreen = img.pixels[pixelArrayIndex + 1];
+      oldBlue = img.pixels[pixelArrayIndex + 2];
+      // Apply convolution kernel to pixel
+      var convolutionPixelColor = convolution(
+        xPixelCoord,
+        yPixelCoord,
+        matrix[1],
+        matrix[1].length,
+        img
+      );
+      // Apply "sharpened" RGB channel values to pixel
+      imgOut.pixels[pixelArrayIndex + 0] = convolutionPixelColor[0];
+      imgOut.pixels[pixelArrayIndex + 1] = convolutionPixelColor[1];
+      imgOut.pixels[pixelArrayIndex + 2] = convolutionPixelColor[2];
+      // Make filtered image visible
+      imgOut.pixels[pixelArrayIndex + 3] = 255;
+    }
+  }
+  // Update display window with data in filtered pixels array
+  imgOut.updatePixels();
+  return imgOut;
+}
+
+// Function that inverts an image's color samples
+function invertFilter(img) {
+  // Original RGB channels for a given pixel
+  var oldRed;
+  var oldGreen;
+  var oldBlue;
+  // Inverted RGB channels for a given pixel
+  var newRed;
+  var newGreen;
+  var newBlue;
+  // Create fresh buffer of pixels based on original image
+  var imgOut = createImage(img.width, img.height);
+  // Load pixels for the display window into the pixels array for the original and modified image
+  img.loadPixels();
+  imgOut.loadPixels();
+  // Scan each pixel in original image
+  for (var xPixelCoord = 0; xPixelCoord < img.width; ++xPixelCoord) {
+    for (var yPixelCoord = 0; yPixelCoord < img.height; ++yPixelCoord) {
+      // Determine index for pixel in pixel array
+      var pixelArrayIndex = (img.width * yPixelCoord + xPixelCoord) * 4;
+      // Extract RGB channel values for pixel in original image
+      oldRed = img.pixels[pixelArrayIndex + 0];
+      oldGreen = img.pixels[pixelArrayIndex + 1];
+      oldBlue = img.pixels[pixelArrayIndex + 2];
+      // Invert RGB channel values
+      newRed = 255 - oldRed;
+      newGreen = 255 - oldGreen;
+      newBlue = 255 - oldBlue;
+      // Apply inverted RGB channel values to pixel
+      imgOut.pixels[pixelArrayIndex + 0] = newRed;
+      imgOut.pixels[pixelArrayIndex + 1] = newGreen;
+      imgOut.pixels[pixelArrayIndex + 2] = newBlue;
+      // Make filtered image visible
+      imgOut.pixels[pixelArrayIndex + 3] = 255;
+    }
+  }
+  // Update display window with data in filtered pixels array
+  imgOut.updatePixels();
+  return imgOut;
 }
