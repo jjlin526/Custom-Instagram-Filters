@@ -1,12 +1,6 @@
-# Custom Instagram Filter
+# Composite-Face-Generator
+* Data set of 30 ML-generated faces merged into a composite image
+* Mouse movement from right to left triggers a seamless transition from the original image to the composite image
+* Cycle through dataset of faces using any key press
 
-## Instructions
-* Press 'q' to apply the sharpen and greyscale filters
-* Press 'w' for the sharpen filter
-* Press 'e' for the sharpen and sepia filters
-* Press 'r' for the inverted and sepia filters
-* Press 't' for the default filter
-* Click on any part of the coloured image to activate a radial blur filter on the right image
-* Default filter has built-in sepia and vignetting filters applied 
-
-### Live Demo: 
+Live Demo: 
