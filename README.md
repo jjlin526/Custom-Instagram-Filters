@@ -1,6 +1,5 @@
-# Composite-Face-Generator
-* Data set of 30 ML-generated faces merged into a composite image
-* Mouse movement from right to left triggers a seamless transition from the original image to the composite image
-* Cycle through dataset of faces using any key press
+# Custom Instagram Filters
+* Use vignetting, radial blur, inverted, sepia, greyscale, sharpened and other custom instagram filters on a demo image
 
-Live Demo: 
+### Live Demo: [https://custom-instagram-filters.netlify.app/](https://custom-instagram-filters.netlify.app/)
+)
